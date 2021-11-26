@@ -1,7 +1,7 @@
 'use strict';
 
 const Support   = require('../support'),
-  DataTypes = require('../../../lib/data-types'),
+  DataTypes = require('sequelize/lib/data-types'),
   expectsql = Support.expectsql,
   current   = Support.sequelize,
   sql       = current.dialect.queryGenerator;
@@ -33,6 +33,26 @@ describe(Support.getTestDialectTeaser('SQL'), () => {
             default: 'INSERT INTO `users` (`user_name`) VALUES ($1);'
           },
           bind: ['triggertest']
+        });
+    });
+
+    it('allow insert primary key with 0', () => {
+      const M = Support.sequelize.define('m', {
+        id: {
+          type: DataTypes.INTEGER,
+          primaryKey: true,
+          autoIncrement: true
+        }
+      });
+
+      expectsql(sql.insertQuery(M.tableName, { id: 0 }, M.rawAttributes),
+        {
+          query: {
+            mssql: 'SET IDENTITY_INSERT [ms] ON; INSERT INTO [ms] ([id]) VALUES ($1); SET IDENTITY_INSERT [ms] OFF;',
+            postgres: 'INSERT INTO "ms" ("id") VALUES ($1);',
+            default: 'INSERT INTO `ms` (`id`) VALUES ($1);'
+          },
+          bind: [0]
         });
     });
   });
@@ -223,5 +243,24 @@ describe(Support.getTestDialectTeaser('SQL'), () => {
         );
       });
     }
+
+    it('allow bulk insert primary key with 0', () => {
+      const M = Support.sequelize.define('m', {
+        id: {
+          type: DataTypes.INTEGER,
+          primaryKey: true,
+          autoIncrement: true
+        }
+      });
+
+      expectsql(sql.bulkInsertQuery(M.tableName, [{ id: 0 }, { id: null }], {}, M.fieldRawAttributesMap),
+        {
+          query: {
+            mssql: 'SET IDENTITY_INSERT [ms] ON; INSERT INTO [ms] DEFAULT VALUES;INSERT INTO [ms] ([id]) VALUES (0),(NULL);; SET IDENTITY_INSERT [ms] OFF;',
+            postgres: 'INSERT INTO "ms" ("id") VALUES (0),(DEFAULT);',
+            default: 'INSERT INTO `ms` (`id`) VALUES (0),(NULL);'
+          }
+        });
+    });
   });
 });
